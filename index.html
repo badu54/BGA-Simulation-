@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agrar Imperium – Simulationsprototyp 0.1</title>
+<style>
+:root{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#eaf0e8;background:#101713}
+*{box-sizing:border-box} body{margin:0;background:linear-gradient(135deg,#101713,#1b2a20);min-height:100vh}
+header{padding:22px max(16px,calc((100vw - 1100px)/2));background:#17251b;border-bottom:1px solid #354638}
+h1{margin:0;font-size:clamp(1.5rem,4vw,2.4rem)} header p{margin:6px 0 0;color:#b7c7b8}
+main{max-width:1100px;margin:auto;padding:18px;display:grid;gap:16px}
+.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.panel{background:#1a261e;border:1px solid #354638;border-radius:14px;padding:16px;min-width:0}
+.metric{font-size:clamp(1.15rem,3vw,1.8rem);font-weight:750;margin-top:4px;overflow-wrap:anywhere}.muted{color:#afc0b1;font-size:.88rem}
+h2{font-size:1.15rem;margin:0 0 12px} h3{font-size:1rem;margin:0 0 8px}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.row>*{flex:1}
+button,select,input{font:inherit;border-radius:9px;border:1px solid #526653;padding:10px;background:#26372a;color:#f2f7f1}
+button{cursor:pointer;font-weight:650}button.primary{background:#b5dc69;color:#172015;border-color:#b5dc69}button:disabled{opacity:.45;cursor:not-allowed}
+button:hover:not(:disabled){filter:brightness(1.08)} .actions{display:flex;gap:8px;flex-wrap:wrap}.actions button{flex:1;min-width:125px}
+label{display:block;color:#c7d5c7;font-size:.9rem;margin-bottom:6px}
+input,select{width:100%}.bar{height:10px;background:#334338;border-radius:99px;overflow:hidden;margin-top:8px}.bar span{display:block;height:100%;background:#b5dc69;width:0;transition:width .2s}
+.log{max-height:240px;overflow:auto;display:flex;flex-direction:column;gap:8px}.logentry{padding:9px 10px;border-radius:8px;background:#111a14;color:#c8d5c8;font-size:.9rem}
+.warning{color:#f5d68c}.good{color:#b5dc69}.bad{color:#ff9f8f}.small{font-size:.8rem;color:#a9b9aa}
+footer{max-width:1100px;margin:auto;padding:0 18px 26px;color:#91a293;font-size:.82rem}
+@media(max-width:760px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}main{padding:12px}.panel{padding:13px}}
+@media(max-width:420px){.grid{grid-template-columns:1fr 1fr;gap:8px}.metric{font-size:1.25rem}}
+</style>
+</head>
+<body>
+<header><h1>🌱 AGRAR IMPERIUM</h1><p>Biogasanlagen-Simulation · Prototyp 0.1 · Simulationskern mit einfacher Oberfläche</p></header>
+<main>
+<section class="grid">
+ <div class="panel"><div class="muted">Kontostand</div><div class="metric" id="cash">—</div><div class="small">Euro</div></div>
+ <div class="panel"><div class="muted">Elektrische Leistung</div><div class="metric" id="power">—</div><div class="small">von 100 kW</div></div>
+ <div class="panel"><div class="muted">Gasspeicher</div><div class="metric" id="gas">—</div><div class="small">m³ Biogas</div><div class="bar"><span id="gasbar"></span></div></div>
+ <div class="panel"><div class="muted">Fermenter</div><div class="metric" id="stability">—</div><div class="small" id="temp">Temperatur: —</div></div>
+</section>
+<section class="panel">
+ <div class="row"><div><h2>📅 Betriebskalender</h2><div class="muted" id="date">Tag 1 · Frühling</div></div><div><div class="muted">Stromproduktion heute</div><div class="metric" id="today">—</div></div><div><div class="muted">Kumulierte Einnahmen</div><div class="metric" id="revenue">—</div></div></div>
+ <div class="actions" style="margin-top:14px">
+  <button class="primary" id="dayBtn">▶ Einen Tag simulieren</button>
+  <button id="weekBtn">⏩ 7 Tage simulieren</button>
+  <button id="resetBtn">↺ Neues Spiel</button>
+ </div>
+</section>
+<section class="grid" style="grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr))">
+ <div class="panel">
+  <h2>🚜 Eigene Fläche</h2><div class="muted">1,0 ha · Ackerland</div>
+  <h3 style="margin-top:14px">Frucht wählen</h3><select id="crop"><option value="maize">Silomais</option><option value="grass">Gras</option></select>
+  <div class="muted" id="cropInfo" style="margin:8px 0">—</div>
+  <div class="bar"><span id="cropbar"></span></div>
+  <div class="actions" style="margin-top:12px"><button id="sowBtn">Fläche bestellen</button><button id="harvestBtn">Ernte einfahren</button></div>
+  <div class="small" style="margin-top:8px">Ernte wird als Silagevorrat eingelagert. Wachstum und Ertrag sind vereinfachte Spielwerte.</div>
+ </div>
+ <div class="panel">
+  <h2>🧪 Substratlager</h2>
+  <div class="row"><div><div class="muted">Maissilage</div><div class="metric" id="maizeStock">—</div><div class="small">Tonnen Frischmasse</div></div><div><div class="muted">Rindergülle</div><div class="metric" id="slurryStock">—</div><div class="small">Tonnen Frischmasse</div></div></div>
+  <div class="actions" style="margin-top:12px"><button id="buyMaize">Maissilage kaufen</button><button id="buySlurry">Gülle beziehen</button></div>
+  <div class="small" style="margin-top:8px">Zukauf kostet Geld. Der Betrieb braucht Substrat, das die eigene Fläche allein nicht liefern kann.</div>
+ </div>
+ <div class="panel">
+  <h2>⚙️ Fermenter füttern</h2>
+  <div class="row"><div><label for="maizeFeed">Maissilage (t/Tag)</label><input id="maizeFeed" type="number" min="0" max="20" step="0.1" value="2.9"></div><div><label for="slurryFeed">Gülle (t/Tag)</label><input id="slurryFeed" type="number" min="0" max="30" step="0.1" value="12.1"></div></div>
+  <div class="actions" style="margin-top:12px"><button class="primary" id="feedBtn">Tagesration einstellen</button><button id="autoBtn">Automatik: AUS</button></div>
+  <div class="muted" id="rationInfo" style="margin-top:10px">—</div>
+ </div>
+</section>
+<section class="grid" style="grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr))">
+ <div class="panel"><h2>⚡ BHKW & Strom</h2>
+  <div class="row"><div><div class="muted">Biogas heute</div><div class="metric" id="gasToday">—</div><div class="small">m³/Tag</div></div><div><div class="muted">Strom netto heute</div><div class="metric" id="netToday">—</div><div class="small">kWh/Tag</div></div></div>
+  <div class="muted" style="margin-top:10px" id="chpInfo">—</div>
+ </div>
+ <div class="panel"><h2>🏭 Anlagenstatus</h2>
+  <div class="row"><div><div class="muted">Temperatur</div><div class="metric" id="temp2">—</div></div><div><div class="muted">Gärprozess</div><div class="metric" id="process">—</div></div></div>
+  <div class="bar"><span id="stabilitybar"></span></div><div class="muted" id="plantInfo" style="margin-top:8px">—</div>
+ </div>
+</section>
+<section class="panel"><h2>📒 Betriebsbuch</h2><div class="log" id="log"></div></section>
+<section class="panel"><h2>ℹ️ Modellannahmen</h2>
+ <div class="muted">Prototyp-Modell: 100 kW elektrisches BHKW, 38 % elektrischer Wirkungsgrad, 60 % Methananteil im Biogas, 9,97 kWh/Nm³ Methan, 7,6 % Eigenstromanteil, 33 °C Zieltemperatur. Die tägliche Biogasbildung wird aus einer vereinfachten verzögerten Vergärung organischer Substanz abgeleitet. Fütterung, Gasausbeute, Temperatur und Stabilität sind noch nicht wissenschaftlich validiert. Ein realer Anlagenentwurf braucht Substratanalysen, organische Raumbelastung, Behälter- und Wärmebilanz.</div>
+</section>
+</main>
+<footer>Agrar Imperium · Offline-Prototyp 0.1 · Spielstand bleibt in diesem Browser-Tab während der Sitzung. Dies ist ein Testmodell, keine Betriebsanleitung für reale Biogasanlagen.</footer>
+<script>
+const $=id=>document.getElementById(id);
+const fmt=(n,d=0)=>Number(n).toLocaleString('de-DE',{minimumFractionDigits:d,maximumFractionDigits:d});
+const euro=n=>new Intl.NumberFormat('de-DE',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(n);
+const stateDefaults=()=>({
+ day:1,cash:35000,plantKw:100,gasStore:600,gasStoreMax:2500,
+ maize:12,slurry:60,field:{crop:null,progress:0,ready:false},
+ temp:33,stability:92,auto:false,feedMaize:2.9,feedSlurry:12.1,
+ cumulativeRevenue:0,todayGross:0,todayNet:0,gasToday:0,history:[],log:[]
+});
+let s=stateDefaults();
+const addLog=msg=>{s.log.unshift(`Tag ${s.day}: ${msg}`);s.log=s.log.slice(0,30)};
+const season=()=>{let d=(s.day-1)%365;if(d<90)return "Frühling";if(d<182)return "Sommer";if(d<274)return "Herbst";return "Winter"};
+function render(){
+ $('cash').textContent=euro(s.cash);$('power').textContent=fmt(s.plantKw)+' kW';
+ $('gas').textContent=fmt(s.gasStore,0)+' / '+fmt(s.gasStoreMax);$('gasbar').style.width=Math.min(100,s.gasStore/s.gasStoreMax*100)+'%';
+ $('stability').textContent=fmt(s.stability)+' %';$('temp').textContent='Temperatur: '+fmt(s.temp,1)+' °C';
+ $('date').textContent=`Tag ${s.day} · ${season()}`;$('today').textContent=fmt(s.todayNet)+' kWh';$('revenue').textContent=euro(s.cumulativeRevenue);
+ $('maizeStock').textContent=fmt(s.maize,1)+' t';$('slurryStock').textContent=fmt(s.slurry,1)+' t';
+ $('cropInfo').textContent=s.field.crop?`${s.field.crop==='maize'?'Silomais':'Gras'} · Wachstum ${fmt(s.field.progress)} %${s.field.ready?' · erntereif':''}`:'Noch keine Kultur bestellt';
+ $('cropbar').style.width=s.field.progress+'%';$('sowBtn').disabled=!!s.field.crop;$('harvestBtn').disabled=!s.field.ready;
+ $('gasToday').textContent=fmt(s.gasToday,1);$('netToday').textContent=fmt(s.todayNet);
+ $('chpInfo').textContent=`Brutto heute: ${fmt(s.todayGross)} kWh · Eigenstrom: ${fmt(s.todayGross*.076)} kWh · Gasspeicher: ${fmt(s.gasStore)} m³`;
+ $('temp2').textContent=fmt(s.temp,1)+' °C';$('process').textContent=s.stability>75?'Stabil':s.stability>45?'Beobachten':'Kritisch';
+ $('stabilitybar').style.width=s.stability+'%';$('plantInfo').textContent=s.stability>75?'Der Prozess läuft im vereinfachten Modell stabil.':s.stability>45?'Fütterung und Temperatur genauer beobachten.':'Geringe Stabilität: Gasproduktion sinkt. Ration und Temperatur prüfen.';
+ $('rationInfo').textContent=`Eingestellte Tagesration: ${fmt(s.feedMaize,1)} t Maissilage + ${fmt(s.feedSlurry,1)} t Gülle.`;
+ $('autoBtn').textContent='Automatik: '+(s.auto?'AN':'AUS');$('log').innerHTML=s.log.map(x=>`<div class="logentry">${x}</div>`).join('');
+}
+function buy(kind){
+ if(kind==='maize'){let cost=75*10;if(s.cash<cost){addLog('Nicht genug Geld für Maissilage.');return} s.cash-=cost;s.maize+=10;addLog('10 t Maissilage geliefert (750 €).');}
+ else {let cost=18*20;if(s.cash<cost){addLog('Nicht genug Geld für Gülle.');return}s.cash-=cost;s.slurry+=20;addLog('20 t Rindergülle bezogen (360 €).');}
+ render();
+}
+function feed(){
+ let m=Math.max(0,Number($('maizeFeed').value)||0),g=Math.max(0,Number($('slurryFeed').value)||0);
+ if(m>s.maize+1e-8||g>s.slurry+1e-8){addLog('Tagesration nicht übernommen: Vorrat reicht nicht.');render();return}
+ s.feedMaize=m;s.feedSlurry=g;addLog(`Tagesration gesetzt: ${fmt(m,1)} t Maissilage und ${fmt(g,1)} t Gülle.`);render();
+}
+function simulateDay(){
+ if(s.auto){
+   if(s.maize<s.feedMaize){addLog('Automatik gestoppt: Maissilagevorrat leer.');s.auto=false}
+   if(s.slurry<s.feedSlurry){addLog('Automatik gestoppt: Güllevorrat leer.');s.auto=false}
+ }
+ let m=s.auto?s.feedMaize:0,g=s.auto?s.feedSlurry:0;
+ s.maize-=m;s.slurry-=g;
+ // Simplified substrate model: fresh matter -> volatile solids (VS) -> methane potential.
+ // Maize: 33% DM, 95% VS/DM, 0.34 Nm3 CH4/kg VS potential; slurry: 8% DM, 80% VS/DM, 0.22 Nm3/kg VS.
+ let vsMaize=m*1000*.33*.95,vsSlurry=g*1000*.08*.80;
+ let methanePotential=(vsMaize*.34+vsSlurry*.22);
+ // 58-day turnover approximated as a daily active fraction, stability affects realized yield.
+ let stabilityFactor=Math.max(.25,Math.min(1.0,s.stability/90));
+ let methane=Math.min(methanePotential*.65*stabilityFactor, 1000); // daily feed's estimated degradable methane potential; retention time is represented indirectly in this MVP
+ let biogas=methane/.60;
+ // Temperature drifts slightly toward 33C, but ambient seasonal effect creates heat challenge.
+ let ambient=season()==='Winter'?5:season()==='Summer'?20:season()==='Spring'?12:10;
+ let heatLoss=(s.temp-ambient)*.035;
+ s.temp += (33-s.temp)*.08 - heatLoss*.08;
+ if(s.temp<30||s.temp>38)s.stability=Math.max(10,s.stability-2.0);
+ else s.stability=Math.min(96,s.stability+.5);
+ let feedTotal=m+g;
+ if(feedTotal===0){s.stability=Math.max(10,s.stability-.8)}
+ if(feedTotal>18){s.stability=Math.max(10,s.stability-2)}
+ if(feedTotal>0&&feedTotal<=18&&s.temp>=31&&s.temp<=36)s.stability=Math.min(96,s.stability+.4);
+ // Gas store and CHP consumption: target daily gas use based on 8,000 annual hours.
+ s.gasStore=Math.min(s.gasStoreMax,s.gasStore+biogas);
+ const gasForFullPower=100/0.38/(9.97*.60)*24;
+ const gasUsed=Math.min(s.gasStore,gasForFullPower);
+ s.gasStore-=gasUsed;
+ let gross=Math.min(100,gasUsed/Math.max(1,gasForFullPower)*100)*24; // kWh/day
+ let net=gross*.924;
+ let income=net*.16; // provisional wholesale/feed-in price assumption, adjustable later
+ s.todayGross=gross;s.todayNet=net;s.gasToday=biogas;s.cash+=income;s.cumulativeRevenue+=income;
+ // Maintenance and daily overhead; simple fixed cost assumption.
+ let costs=22 + (s.plantKw*.06);
+ s.cash-=costs;
+ s.history.push({day:s.day,gas:biogas,net,cash:s.cash,stability:s.stability});
+ if(s.field.crop&&!s.field.ready){
+   let growth=s.field.crop==='maize'?1.15:.95;
+   if(season()==='Winter')growth*=.25;
+   s.field.progress=Math.min(100,s.field.progress+growth);
+   if(s.field.progress>=100){s.field.ready=true;addLog('Die Feldfrucht ist erntereif.')}
+ }
+ addLog(`Anlagenlauf: ${fmt(biogas,1)} m³ Biogas, ${fmt(net)} kWh netto, Stromerlös ${euro(income)}, Betriebskosten ${euro(costs)}.`);
+ s.day++;render();
+}
+function sow(){
+ if(s.field.crop){return}
+ s.field.crop=$('crop').value;s.field.progress=0;s.field.ready=false;
+ let cost=s.field.crop==='maize'?180:100;
+ s.cash-=cost;addLog(`${s.field.crop==='maize'?'Silomais':'Gras'} bestellt; Saat- und Feldkosten ${euro(cost)}.`);render();
+}
+function harvest(){
+ if(!s.field.ready)return;
+ let crop=s.field.crop;let tonnes=crop==='maize'?44:30;
+ if(crop==='maize')s.maize+=tonnes;else s.slurry+=0; // grass storage added below
+ if(crop==='grass')s.grass=(s.grass||0)+tonnes;
+ s.field={crop:null,progress:0,ready:false};
+ addLog(`Ernte abgeschlossen: ${fmt(tonnes)} t ${crop==='maize'?'Maissilage':'Grassilage'} ins Lager gebracht.`);render();
+}
+$('dayBtn').onclick=simulateDay;
+$('weekBtn').onclick=()=>{for(let i=0;i<7;i++)simulateDay()};
+$('resetBtn').onclick=()=>{if(confirm('Neues Spiel starten? Der aktuelle Prototyp-Spielstand wird zurückgesetzt.')){s=stateDefaults();addLog('Neuer Spielstand gestartet.');render()}};
+$('buyMaize').onclick=()=>buy('maize');$('buySlurry').onclick=()=>buy('slurry');
+$('feedBtn').onclick=feed;$('autoBtn').onclick=()=>{s.auto=!s.auto;addLog('Fütterungsautomatik '+(s.auto?'eingeschaltet':'ausgeschaltet')+'.');render()};
+$('sowBtn').onclick=sow;$('harvestBtn').onclick=harvest;
+addLog('Spiel gestartet: 1 ha Fläche, bestehende 100-kW-Biogasanlage. Für die tägliche Fütterung Automatik einschalten.');
+render();
+</script>
+</body></html>
